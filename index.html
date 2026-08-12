@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Blame Spectrum — Live Pitcher WAR</title>
-<meta name="description" content="Every pitcher WAR is a decision about who owns the runs. Drag the slider from FIP-based to RA9-based and watch the leaderboard reshuffle. Updates every morning." />
+<meta name="description" content="Drag the slider from FIP-based to RA9-based WAR and watch this season's pitcher leaderboard reshuffle. Live MLB stats, updated every morning." />
 <meta property="og:title" content="The Blame Spectrum — Live Pitcher WAR" />
-<meta property="og:description" content="Drag the slider from FIP-based to RA9-based WAR and watch this season's pitcher leaderboard reshuffle. Live MLB stats, updated every morning." />
+<meta property="og:description" content="Drag the slider from FIP-based to RA9-based WAR and watch this season's pitcher leaderboard reshuffle." />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,51 +28,29 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: 'Barlow', system-ui, sans-serif;
-  padding: 28px 20px 56px;
+  padding: 32px 20px 48px;
 }
-.shell { max-width: 1080px; margin: 0 auto; }
+.shell { max-width: 720px; margin: 0 auto; }
 
-.eyebrow {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--ink-soft); margin: 0 0 6px;
-}
 h1 {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700; text-transform: uppercase;
-  font-size: clamp(36px, 6vw, 58px);
+  font-size: clamp(38px, 7vw, 60px);
   line-height: 0.95; letter-spacing: 0.01em; margin: 0;
 }
-h1 .fip-word { color: var(--fip); }
-h1 .ra9-word { color: var(--ra9); }
-.sub { color: var(--ink-soft); font-size: 15px; max-width: 62ch; margin: 12px 0 0; }
 .fresh {
   font-family: 'IBM Plex Mono', monospace; font-size: 12px;
   color: var(--ink-soft); margin: 10px 0 0;
 }
 
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 20px;
-  margin-top: 16px;
-}
-.card-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
-  font-size: 17px; margin: 0 0 12px;
-}
-
-/* ---- slider band ---- */
-.band { margin-top: 24px; }
-.poles { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.pole { max-width: 46%; }
+/* ---- slider ---- */
+.band { margin-top: 28px; }
+.poles { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
 .pole-name {
   font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
   text-transform: uppercase; font-size: 22px; line-height: 1;
 }
-.pole-desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+.pole-desc { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
 .pole.right { text-align: right; }
 .pole.left .pole-name { color: var(--fip); }
 .pole.right .pole-name { color: var(--ra9); }
@@ -96,85 +74,11 @@ h1 .ra9-word { color: var(--ra9); }
 }
 #lam:focus-visible { box-shadow: 0 0 0 3px rgba(36,81,216,0.35); }
 
-.readout {
-  display: flex; justify-content: center; align-items: baseline; gap: 10px;
-  margin-top: 14px; font-family: 'IBM Plex Mono', monospace; flex-wrap: wrap;
+.under {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 12px;
 }
-.readout-num { font-size: 30px; font-weight: 600; }
-.readout-label { font-size: 12.5px; color: var(--ink-soft); letter-spacing: 0.04em; }
-.presets { display: flex; justify-content: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-
-/* ---- layout ---- */
-.grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-top: 16px; }
-@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
-
-/* ---- chart ---- */
-#chart { width: 100%; display: block; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
-.legend-item {
-  font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
-  border: none; background: none; cursor: pointer; padding: 2px 4px; color: var(--ink);
-  font-family: 'Barlow', sans-serif;
-}
-.legend-item:hover { text-decoration: line-through; }
-.legend-item:focus-visible { outline: 2px solid var(--fip); border-radius: 4px; }
-.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.chart-hint { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin: 8px 0 0; }
-
-/* ---- leaderboard ---- */
-.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.controls input[type="text"] { flex: 1; min-width: 120px; }
-input[type="text"], input[type="number"], select {
-  font-family: 'IBM Plex Mono', monospace; font-size: 13px;
-  padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
-  background: var(--card); color: var(--ink);
-}
-input:focus-visible, select:focus-visible { outline: 2px solid var(--fip); outline-offset: 1px; }
-input[type="number"] { width: 72px; }
-label.ctl {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
-  text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
-}
-
-#board { position: relative; }
-.row {
-  position: absolute; left: 0; right: 0; height: 58px;
-  display: flex; align-items: center; gap: 10px;
-  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-@media (prefers-reduced-motion: reduce) { .row { transition: none; } }
-.rank {
-  font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
-  font-size: 19px; width: 26px; color: var(--ink-soft); text-align: center; flex: none;
-}
-.row-body { flex: 1; min-width: 0; }
-.row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.row-name {
-  font-weight: 600; font-size: 13.5px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.row-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-soft); font-weight: 400; }
-.row-war { font-family: 'IBM Plex Mono', monospace; font-size: 14.5px; font-weight: 600; flex: none; }
-.bar-track { height: 6px; background: var(--bg); border-radius: 4px; margin-top: 5px; overflow: hidden; }
-.bar { height: 100%; border-radius: 4px; }
-.row-sub {
-  display: flex; justify-content: space-between; align-items: center; margin-top: 4px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-soft);
-}
-.chip {
-  display: inline-block; border-radius: 4px; padding: 1px 6px; font-weight: 500;
-}
-.chip.fip { background: rgba(36,81,216,0.12); color: var(--fip); }
-.chip.ra9 { background: rgba(196,36,48,0.12); color: var(--ra9); }
-.pin {
-  border: none; background: none; cursor: pointer; font-size: 15px;
-  color: var(--ink-soft); padding: 2px 5px; flex: none; line-height: 1;
-}
-.pin.on { color: #B26A00; }
-.pin:focus-visible { outline: 2px solid var(--fip); border-radius: 4px; }
-.board-note { font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
-
+.readout-num { font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; }
+.presets { display: flex; gap: 8px; }
 .btn {
   font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 13px;
   border: 1px solid var(--line); background: var(--card); color: var(--ink);
@@ -182,94 +86,113 @@ label.ctl {
 }
 .btn:hover { border-color: var(--ink-soft); }
 .btn:focus-visible { outline: 2px solid var(--fip); outline-offset: 1px; }
-.btn[aria-pressed="true"] { border-color: var(--ink); background: var(--bg); }
+.btn[aria-pressed="true"] { border-color: var(--ink); background: var(--card); box-shadow: inset 0 0 0 1px var(--ink); }
 
-.method { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin-top: 16px; }
-.method a { color: inherit; }
-#error { display: none; }
+/* ---- controls ---- */
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 26px 0 14px; }
+.controls input[type="text"] { flex: 1; min-width: 140px; }
+input[type="text"], input[type="number"], select {
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--card); color: var(--ink);
+}
+input:focus-visible, select:focus-visible { outline: 2px solid var(--fip); outline-offset: 1px; }
+input[type="number"] { width: 76px; }
+label.ctl {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
+}
+
+/* ---- leaderboard ---- */
+#board { position: relative; }
+.row {
+  position: absolute; left: 0; right: 0; height: 44px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--line);
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) { .row { transition: none; } }
+.rank {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+  font-size: 19px; width: 26px; color: var(--ink-soft); text-align: center; flex: none;
+}
+.row-name {
+  flex: 1; min-width: 0; font-weight: 600; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.row-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-soft); font-weight: 400; }
+.chip {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 500;
+  border-radius: 4px; padding: 2px 6px; flex: none;
+}
+.chip.fip { background: rgba(36,81,216,0.12); color: var(--fip); }
+.chip.ra9 { background: rgba(196,36,48,0.12); color: var(--ra9); }
+.row-war {
+  font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600;
+  flex: none; width: 52px; text-align: right;
+}
+#note { font-size: 13px; color: var(--ink-soft); margin: 12px 0 0; }
+
+.foot {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  color: var(--ink-soft); margin-top: 28px;
+}
+.foot a { color: inherit; }
+#error { display: none; font-size: 14px; color: var(--ink-soft); margin-top: 24px; }
 </style>
 </head>
 <body>
 <div class="shell">
-  <p class="eyebrow">Live pitcher WAR feed · updates every morning</p>
-  <h1>The blame spectrum: <span class="fip-word">FIP</span> to <span class="ra9-word">RA9</span></h1>
-  <p class="sub">
-    Every pitcher WAR is a decision about who owns the runs. Drag the slider from
-    "the pitcher only controls strikeouts, walks, and homers" to "the pitcher owns
-    every run that scored" and watch this season's leaderboard reshuffle.
-  </p>
-  <p class="fresh" id="fresh">Loading season data&hellip;</p>
+  <h1>The Blame Spectrum</h1>
+  <p class="fresh" id="fresh">Loading&hellip;</p>
 
-  <div class="card" id="error">
-    <h2 class="card-title">Couldn't load the data feed</h2>
-    <p class="method" style="margin-top:0">
-      This page reads <code>data/war_spectrum.json</code> from the same folder.
-      If you're seeing this on GitHub Pages, run the "Update data"
-      action once to generate it. If you opened this file directly from disk,
-      serve it instead (for example <code>python -m http.server</code> in
-      the repo root) — browsers block local file fetches.
-    </p>
-  </div>
+  <p id="error">
+    Couldn't load <code>data/war_spectrum.json</code>. Run the "Update data"
+    action once, or serve this page from the repo root.
+  </p>
 
   <div id="app" hidden>
-    <div class="card band">
+    <div class="band">
       <div class="poles">
         <div class="pole left">
           <div class="pole-name">FIP-based</div>
-          <div class="pole-desc">Pitcher owns only K, BB, HBP, HR. Balls in play belong to defense and luck. (&#8776; fWAR)</div>
+          <div class="pole-desc">K &middot; BB &middot; HR only</div>
         </div>
         <div class="pole right">
           <div class="pole-name">RA9-based</div>
-          <div class="pole-desc">Pitcher owns every run allowed, earned or not. (&#8776; bWAR before its team-defense adjustment)</div>
+          <div class="pole-desc">every run counts</div>
         </div>
       </div>
       <input id="lam" type="range" min="0" max="100" value="35"
              aria-label="Blame attribution: percent results-based" />
-      <div class="readout">
-        <span class="readout-num" id="readout-num">65% / 35%</span>
-        <span class="readout-label">fielding-independent / results-based</span>
-      </div>
-      <div class="presets">
-        <button class="btn preset" data-v="0">fWAR lens</button>
-        <button class="btn preset" data-v="50">50 / 50</button>
-        <button class="btn preset" data-v="100">bWAR lens</button>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h2 class="card-title">WAR across the full spectrum</h2>
-        <svg id="chart" viewBox="0 0 640 360" role="img"
-             aria-label="Line chart of each pinned pitcher's WAR across the blame spectrum"></svg>
-        <div class="legend" id="legend"></div>
-        <p class="chart-hint">
-          Where two lines cross, the ranking argument between those pitchers is purely
-          an argument about blame attribution. Star pitchers in the leaderboard to add
-          them here; click a name above to remove it.
-        </p>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title">Leaderboard at this split</h2>
-        <div class="controls">
-          <input type="text" id="search" placeholder="Search pitcher&hellip;" aria-label="Search pitcher" />
-          <label class="ctl">Min IP <input type="number" id="min-ip" value="100" min="20" step="10" /></label>
-          <label class="ctl">Role
-            <select id="role">
-              <option value="all">All</option>
-              <option value="sp">SP</option>
-              <option value="rp">RP</option>
-            </select>
-          </label>
+      <div class="under">
+        <span class="readout-num" id="readout-num">65 / 35</span>
+        <div class="presets">
+          <button class="btn preset" data-v="0">fWAR</button>
+          <button class="btn preset" data-v="50">50/50</button>
+          <button class="btn preset" data-v="100">bWAR</button>
         </div>
-        <div id="board"></div>
-        <p class="board-note" id="board-note"></p>
       </div>
     </div>
 
-    <div class="card">
-      <p class="method" style="margin-top:0" id="method"></p>
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search&hellip;" aria-label="Search pitcher" />
+      <label class="ctl">Min IP <input type="number" id="min-ip" value="100" min="20" step="10" /></label>
+      <label class="ctl">
+        <select id="role" aria-label="Role">
+          <option value="all">All</option>
+          <option value="sp">SP</option>
+          <option value="rp">RP</option>
+        </select>
+      </label>
     </div>
+
+    <div id="board"></div>
+    <p id="note"></p>
+
+    <p class="foot">Simplified two-pole WAR &middot; updates every morning &middot;
+      <a href="https://github.com/lancebroz/war-spectrum">method &amp; code</a></p>
   </div>
 </div>
 
@@ -277,32 +200,15 @@ label.ctl {
 (function () {
   "use strict";
 
-  var PALETTE = ["#2451D8", "#C42430", "#0E7A5F", "#B26A00", "#6D33C9", "#0F6B84", "#8A2B57", "#3D4A44"];
   var FIP_COLOR = "#2451D8", RA9_COLOR = "#C42430";
-  var ROW_H = 58, BOARD_MAX = 25;
+  var ROW_H = 44, BOARD_MAX = 25;
 
-  var state = {
-    lam: 0.35,
-    data: null,
-    pinned: [],      // pitcher ids shown on the chart, in pin order
-    search: "",
-    minIp: 100,
-    role: "all"
-  };
+  var state = { lam: 0.35, data: null, search: "", minIp: 100, role: "all" };
 
   var $ = function (id) { return document.getElementById(id); };
 
   function warAt(p, lam) { return (1 - lam) * p.war_fip + lam * p.war_ra9; }
   function roleOf(p) { return p.g > 0 && p.gs / p.g >= 0.5 ? "sp" : "rp"; }
-  function colorOf(id) {
-    var i = state.pinned.indexOf(id);
-    return PALETTE[(i >= 0 ? i : 0) % PALETTE.length];
-  }
-  function byId(id) {
-    for (var i = 0; i < state.data.pitchers.length; i++)
-      if (state.data.pitchers[i].id === id) return state.data.pitchers[i];
-    return null;
-  }
   function lerpColor(a, b, t) {
     function hx(c, i) { return parseInt(c.slice(i, i + 2), 16); }
     var out = "#";
@@ -326,64 +232,6 @@ label.ctl {
     });
   }
 
-  /* ---------- chart ---------- */
-  function renderChart() {
-    var svg = $("chart");
-    var W = 640, H = 360, padL = 42, padR = 16, padT = 12, padB = 30;
-    var pts = state.pinned.map(byId).filter(Boolean);
-    if (!pts.length) {
-      svg.innerHTML = '<text x="320" y="180" text-anchor="middle" fill="#55665D" ' +
-        'font-family="Barlow, sans-serif" font-size="14">Star pitchers in the leaderboard to chart them</text>';
-      $("legend").innerHTML = "";
-      return;
-    }
-    var lo = Infinity, hi = -Infinity;
-    pts.forEach(function (p) {
-      lo = Math.min(lo, p.war_fip, p.war_ra9);
-      hi = Math.max(hi, p.war_fip, p.war_ra9);
-    });
-    var pad = Math.max(0.4, (hi - lo) * 0.12);
-    lo -= pad; hi += pad;
-
-    var X = function (l) { return padL + l * (W - padL - padR); };
-    var Y = function (w) { return padT + (hi - w) / (hi - lo) * (H - padT - padB); };
-
-    var out = [];
-    // y gridlines on whole numbers
-    var start = Math.ceil(lo), end = Math.floor(hi);
-    for (var t = start; t <= end; t++) {
-      out.push('<line x1="' + padL + '" y1="' + Y(t) + '" x2="' + (W - padR) + '" y2="' + Y(t) +
-        '" stroke="#E3EAE3" stroke-dasharray="2 4"/>');
-      out.push('<text x="' + (padL - 8) + '" y="' + (Y(t) + 4) + '" text-anchor="end" fill="#55665D" ' +
-        'font-family="IBM Plex Mono, monospace" font-size="11">' + t + '</text>');
-    }
-    // x axis ticks
-    [0, 0.25, 0.5, 0.75, 1].forEach(function (l) {
-      out.push('<text x="' + X(l) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#55665D" ' +
-        'font-family="IBM Plex Mono, monospace" font-size="11">' + Math.round(l * 100) + '%</text>');
-    });
-    // reference line at current lambda
-    var blend = lerpColor(FIP_COLOR, RA9_COLOR, state.lam);
-    out.push('<line x1="' + X(state.lam) + '" y1="' + padT + '" x2="' + X(state.lam) + '" y2="' + (H - padB) +
-      '" stroke="' + blend + '" stroke-width="2" stroke-dasharray="4 3"/>');
-    // pitcher lines: WAR is linear in lambda, so each pitcher is one segment
-    pts.forEach(function (p) {
-      var c = colorOf(p.id);
-      out.push('<line x1="' + X(0) + '" y1="' + Y(p.war_fip) + '" x2="' + X(1) + '" y2="' + Y(p.war_ra9) +
-        '" stroke="' + c + '" stroke-width="2.4"><title>' + esc(p.name) + '</title></line>');
-      var w = warAt(p, state.lam);
-      out.push('<circle cx="' + X(state.lam) + '" cy="' + Y(w) + '" r="4" fill="' + c +
-        '" stroke="#fff" stroke-width="1.5"><title>' + esc(p.name) + ": " + w.toFixed(2) + '</title></circle>');
-    });
-    svg.innerHTML = out.join("");
-
-    $("legend").innerHTML = pts.map(function (p) {
-      return '<button class="legend-item" data-unpin="' + p.id + '" title="Remove from chart">' +
-        '<span class="dot" style="background:' + colorOf(p.id) + '"></span>' + esc(p.name) + '</button>';
-    }).join("");
-  }
-
-  /* ---------- leaderboard ---------- */
   function renderBoard() {
     var pool = eligible().map(function (p) { return { p: p, war: warAt(p, state.lam) }; });
     pool.sort(function (a, b) { return b.war - a.war; });
@@ -394,13 +242,9 @@ label.ctl {
       return !q || e.p.name.toLowerCase().indexOf(q) >= 0 || (e.p.team || "").toLowerCase().indexOf(q) >= 0;
     }).slice(0, BOARD_MAX);
 
-    var maxWar = 0.1;
-    rows.forEach(function (e) { maxWar = Math.max(maxWar, Math.abs(e.war)); });
-
     var board = $("board");
     board.style.height = rows.length * ROW_H + "px";
 
-    // Rebuild rows only when the visible set changes; otherwise just move them.
     var want = rows.map(function (e) { return e.p.id; }).join(",");
     if (board.dataset.ids !== want) {
       board.dataset.ids = want;
@@ -408,19 +252,10 @@ label.ctl {
         var p = e.p;
         return '<div class="row" data-id="' + p.id + '">' +
           '<div class="rank"></div>' +
-          '<div class="row-body">' +
-            '<div class="row-top">' +
-              '<span class="row-name">' + esc(p.name) +
-                ' <span class="row-meta">' + esc(p.team) + ' &middot; ' + p.ip_display + ' IP</span></span>' +
-              '<span class="row-war"></span>' +
-            '</div>' +
-            '<div class="bar-track"><div class="bar"></div></div>' +
-            '<div class="row-sub">' +
-              '<span>FIP pole ' + p.war_fip.toFixed(1) + ' &middot; RA9 pole ' + p.war_ra9.toFixed(1) + '</span>' +
-              '<span class="chip"></span>' +
-            '</div>' +
-          '</div>' +
-          '<button class="pin" data-pin="' + p.id + '" aria-label="Toggle ' + esc(p.name) + ' on chart"></button>' +
+          '<div class="row-name">' + esc(p.name) +
+            ' <span class="row-meta">' + esc(p.team) + ' &middot; ' + p.ip_display + '</span></div>' +
+          '<span class="chip"></span>' +
+          '<span class="row-war"></span>' +
         '</div>';
       }).join("");
     }
@@ -431,10 +266,6 @@ label.ctl {
       el.style.transform = "translateY(" + idx * ROW_H + "px)";
       el.querySelector(".rank").textContent = e.rank;
       el.querySelector(".row-war").textContent = e.war.toFixed(2);
-      var bar = el.querySelector(".bar");
-      bar.style.width = Math.max(0, e.war / maxWar * 100) + "%";
-      var pinned = state.pinned.indexOf(e.p.id) >= 0;
-      bar.style.background = pinned ? colorOf(e.p.id) : "#9AA8A0";
       var diff = e.p.war_fip - e.p.war_ra9;
       var chip = el.querySelector(".chip");
       if (diff >= 0) {
@@ -446,21 +277,15 @@ label.ctl {
         chip.textContent = "RA9 +" + (-diff).toFixed(1);
         chip.title = "The RA9 model likes this pitcher more by " + (-diff).toFixed(2) + " WAR";
       }
-      var pin = el.querySelector(".pin");
-      pin.textContent = pinned ? "\u2605" : "\u2606";
-      pin.className = "pin" + (pinned ? " on" : "");
     });
 
-    var note = eligible().length + " pitchers at \u2265" + state.minIp + " IP";
-    if (rows.length === BOARD_MAX) note += " \u00b7 showing top " + BOARD_MAX + " (search for anyone else)";
-    if (q && !rows.length) note = "No pitchers match \u201C" + state.search.trim() + "\u201D at these filters";
-    $("board-note").textContent = note;
+    $("note").textContent = q && !rows.length ? "No matches." : "";
   }
 
   function renderReadout() {
     var pct = Math.round(state.lam * 100);
     var num = $("readout-num");
-    num.textContent = (100 - pct) + "% / " + pct + "%";
+    num.textContent = (100 - pct) + " / " + pct;
     var blend = lerpColor(FIP_COLOR, RA9_COLOR, state.lam);
     num.style.color = blend;
     $("lam").style.setProperty("--thumb", blend);
@@ -469,9 +294,8 @@ label.ctl {
     });
   }
 
-  function renderAll() { renderReadout(); renderChart(); renderBoard(); }
+  function renderAll() { renderReadout(); renderBoard(); }
 
-  /* ---------- events ---------- */
   $("lam").addEventListener("input", function () {
     state.lam = this.value / 100;
     renderAll();
@@ -490,53 +314,16 @@ label.ctl {
     renderBoard();
   });
   $("role").addEventListener("change", function () { state.role = this.value; renderBoard(); });
-  document.addEventListener("click", function (ev) {
-    var pin = ev.target.closest("[data-pin]");
-    if (pin) {
-      var id = parseInt(pin.dataset.pin, 10);
-      var i = state.pinned.indexOf(id);
-      if (i >= 0) state.pinned.splice(i, 1); else state.pinned.push(id);
-      renderChart(); renderBoard();
-      return;
-    }
-    var unpin = ev.target.closest("[data-unpin]");
-    if (unpin) {
-      var uid = parseInt(unpin.dataset.unpin, 10);
-      var j = state.pinned.indexOf(uid);
-      if (j >= 0) state.pinned.splice(j, 1);
-      renderChart(); renderBoard();
-    }
-  });
 
-  /* ---------- boot ---------- */
   fetch("data/war_spectrum.json", { cache: "no-cache" })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function (data) {
       state.data = data;
-
-      var meta = data.meta || {}, lg = data.league || {};
-      var fresh = "MLB " + (meta.season || "") + " season to date";
-      if (meta.data_through) fresh += " \u00b7 games through " + meta.data_through;
-      if (meta.generated_at) fresh += " \u00b7 feed generated " + meta.generated_at.replace("T", " ").slice(0, 16) + " CT";
+      var meta = data.meta || {};
+      var fresh = "MLB " + (meta.season || "");
+      if (meta.data_through) fresh += " \u00b7 through " + meta.data_through;
+      fresh += " \u00b7 updates every morning";
       $("fresh").textContent = fresh;
-
-      // Default chart: top 6 at the 50/50 blend among 100+ IP pitchers.
-      var seed = data.pitchers
-        .filter(function (p) { return p.ip >= 100; })
-        .sort(function (a, b) { return warAt(b, 0.5) - warAt(a, 0.5); })
-        .slice(0, 6);
-      state.pinned = seed.map(function (p) { return p.id; });
-
-      $("method").innerHTML =
-        "Method, simplified for the sandbox: FIP on the RA9 scale, blended with actual runs " +
-        "allowed per nine, measured against a replacement level blended by starter/reliever " +
-        "role (.380/.470), at " + (lg.rpw || "~9.7") + " runs per win from a league RA9 of " +
-        (lg.ra9 || "?") + ". Real fWAR adds park factors, league adjustments, dynamic " +
-        "runs-per-win, and infield flies; real bWAR further adjusts the RA9 pole for team " +
-        "defense and opponent quality. The poles approximate each site's philosophy, not " +
-        "their published numbers. Stats: official MLB season lines, refreshed every morning. " +
-        'Data + code: <a href="https://github.com/lancebroz/mlb-pitcher-data">mlb-pitcher-data</a>.';
-
       $("app").hidden = false;
       renderAll();
     })
