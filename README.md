@@ -4,7 +4,7 @@ Every pitcher WAR is a decision about who owns the runs. This site puts that
 decision on a slider: drag from **FIP-based** (the pitcher only controls
 strikeouts, walks, and homers — fWAR's philosophy) to **RA9-based** (the
 pitcher owns every run that scored — bWAR's philosophy) and watch this
-season's leaderboard reshuffle in real time.
+season's leaderboard reshuffle in real time. 
 
 Official MLB season stats, refreshed every morning by a GitHub Action.
 No server, no build step, no API keys — a static page plus one JSON file.
