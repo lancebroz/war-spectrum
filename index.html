@@ -31,7 +31,7 @@ body {
   font-family: 'Barlow', system-ui, sans-serif;
   padding: 32px 20px 48px;
 }
-.shell { max-width: 720px; margin: 0 auto; }
+.shell { max-width: 960px; margin: 0 auto; }
 
 h1 {
   font-family: 'Barlow Condensed', sans-serif;
@@ -127,6 +127,45 @@ label.ctl {
   text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink);
 }
 .h-chip { width: 58px; flex: none; }
+.h-stats, .stats { display: flex; gap: 6px; flex: none; }
+.wars-h, .wars { display: flex; gap: 10px; flex: none; align-items: center; }
+.h-stat {
+  width: 46px; flex: none; text-align: right;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft);
+}
+.row-stat {
+  width: 46px; flex: none; text-align: right;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 400;
+  color: var(--ink-soft); font-variant-numeric: tabular-nums;
+}
+
+/* ---- disagreements panel ---- */
+.disagree { margin-top: 20px; }
+.disagree summary {
+  cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 15px;
+}
+.disagree summary:focus-visible { outline: 2px solid var(--fip); outline-offset: 2px; }
+.dis-toggle { display: flex; gap: 8px; margin-top: 10px; }
+.dis-toggle .btn { padding: 4px 10px; font-size: 12px; }
+.dis-cols { display: flex; gap: 28px; flex-wrap: wrap; }
+.dis-col { flex: 1; min-width: 220px; }
+.dis-h {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; margin: 12px 0 2px;
+}
+.dis-h.fip { color: var(--fip); }
+.dis-h.ra9 { color: var(--ra9); }
+.dis-col ol { list-style: none; margin: 0; padding: 0; }
+.dis-col li {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12.5px; line-height: 1.9; border-bottom: 1px dashed var(--line);
+}
+.dis-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dis-val { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; flex: none; }
+.dis-col.fip .dis-val { color: var(--fip); }
+.dis-col.ra9 .dis-val { color: var(--ra9); }
 
 #board { position: relative; }
 .row {
@@ -187,6 +226,9 @@ label.ctl {
 .foot a { color: inherit; }
 #error { display: none; font-size: 14px; color: var(--ink-soft); margin-top: 24px; }
 
+@media (max-width: 800px) {
+  .h-stats, .stats { display: none; }
+}
 @media (max-width: 480px) {
   .row, .head { gap: 8px; }
   .row-war, .h-col, .h-label { width: 44px; font-size: 13px; }
@@ -217,6 +259,24 @@ label.ctl {
       </label>
       <button class="btn" id="manual" aria-pressed="false">Manual adjustment</button>
     </div>
+
+    <details class="disagree">
+      <summary>Model disagreements</summary>
+      <div class="dis-toggle">
+        <button class="btn" id="dis-fav" aria-pressed="true">Favored</button>
+        <button class="btn" id="dis-hurt" aria-pressed="false">Hurt</button>
+      </div>
+      <div class="dis-cols">
+        <div class="dis-col fip">
+          <h3 class="dis-h fip" id="dis-h-fip"></h3>
+          <ol id="dis-list-fip"></ol>
+        </div>
+        <div class="dis-col ra9">
+          <h3 class="dis-h ra9" id="dis-h-ra9"></h3>
+          <ol id="dis-list-ra9"></ol>
+        </div>
+      </div>
+    </details>
 
     <div class="band" id="band" hidden>
       <div class="poles">
@@ -312,10 +372,20 @@ label.ctl {
       id + "/headshot/67/current";
   }
 
-  var state = { lam: 0.35, manual: false, sort: "mid", data: null,
+  var state = { lam: 0.35, manual: false, sort: "mid", disHurt: false, data: null,
                 search: "", minIp: 100, role: "all" };
 
   var $ = function (id) { return document.getElementById(id); };
+
+  function fmt(v, d) { return v == null || !isFinite(v) ? "\u2013" : v.toFixed(d); }
+  function statsOf(p) {
+    var ip = p.ip || 0;
+    var whip = (p.h != null && p.bb != null && ip > 0) ? (p.h + p.bb) / ip : null;
+    var hr9 = ip > 0 ? p.hr * 9 / ip : null;
+    var kbb = p.bf ? (p.k - p.bb) / p.bf * 100 : null;
+    return { ip: p.ip_display, era: fmt(p.era, 2), whip: fmt(whip, 2),
+             hr9: fmt(hr9, 2), kbb: fmt(kbb, 1) };
+  }
 
   function raEff(p) { return p.war_ra9_adj != null ? p.war_ra9_adj : p.war_ra9; }
   function colsOf(p) {
@@ -349,20 +419,45 @@ label.ctl {
 
   function renderHead() {
     var head = $("head");
+    var stats = '<span class="h-stats">' +
+      ["IP", "ERA", "WHIP", "HR/9", "K-BB%"].map(function (s) {
+        return '<span class="h-stat">' + s + '</span>';
+      }).join("") + '</span>';
     if (state.manual) {
-      head.innerHTML = '<span class="h-pad"></span><span class="h-chip"></span>' +
-        '<span class="h-label">WAR</span>';
+      head.innerHTML = '<span class="h-pad"></span>' + stats +
+        '<span class="wars-h"><span class="h-chip"></span><span class="h-label">WAR</span></span>';
     } else {
-      head.innerHTML = '<span class="h-pad"></span>' +
+      head.innerHTML = '<span class="h-pad"></span>' + stats +
+        '<span class="wars-h">' +
         ["fip", "mid", "ra9"].map(function (c) {
           var label = c === "fip" ? "FIP" : c === "mid" ? "50/50" : "RA9";
           return '<button class="h-col ' + c + '" data-col="' + c + '" aria-pressed="' +
             (state.sort === c) + '">' + label + '</button>';
-        }).join("");
+        }).join("") + '</span>';
     }
   }
 
+  function renderDisagree() {
+    var pool = eligible().map(function (p) { return { p: p, d: p.war_fip - raEff(p) }; });
+    var hurt = state.disHurt;
+    var fipList = pool.slice().sort(function (a, b) { return hurt ? a.d - b.d : b.d - a.d; }).slice(0, 10);
+    var ra9List = pool.slice().sort(function (a, b) { return hurt ? b.d - a.d : a.d - b.d; }).slice(0, 10);
+    $("dis-h-fip").textContent = (hurt ? "Hurt" : "Favored") + " by FIP";
+    $("dis-h-ra9").textContent = (hurt ? "Hurt" : "Favored") + " by RA9";
+    function fill(id, list, sign) {
+      $(id).innerHTML = list.map(function (e) {
+        var v = e.d * sign;
+        return '<li><span class="dis-name">' + esc(e.p.name) + '</span>' +
+          '<span class="dis-val">' + (v >= 0 ? "+" : "\u2212") + Math.abs(v).toFixed(1) +
+          '</span></li>';
+      }).join("");
+    }
+    fill("dis-list-fip", fipList, 1);
+    fill("dis-list-ra9", ra9List, -1);
+  }
+
   function renderBoard() {
+    renderDisagree();
     var pool = eligible().map(function (p) {
       return { p: p, val: state.manual ? blended(p) : colsOf(p)[state.sort] };
     });
@@ -385,19 +480,24 @@ label.ctl {
       board.dataset.ids = want;
       board.innerHTML = rows.map(function (e) {
         var p = e.p;
-        var cells = state.manual
-          ? '<span class="chip"></span><span class="row-war"></span>'
-          : '<span class="row-war c-fip"></span>' +
+        var st = statsOf(p);
+        var statCells = '<span class="stats">' +
+          [st.ip, st.era, st.whip, st.hr9, st.kbb].map(function (v) {
+            return '<span class="row-stat">' + v + '</span>';
+          }).join("") + '</span>';
+        var warCells = state.manual
+          ? '<span class="wars"><span class="chip"></span><span class="row-war"></span></span>'
+          : '<span class="wars"><span class="row-war c-fip"></span>' +
             '<span class="row-war c-mid"></span>' +
-            '<span class="row-war c-ra9"></span>';
+            '<span class="row-war c-ra9"></span></span>';
         return '<div class="row" data-id="' + p.id + '">' +
           '<div class="rank"></div>' +
           '<span class="face"><img loading="lazy" alt="" src="' + faceUrl(p.id) +
             '" onerror="this.remove()"></span>' +
           '<div class="row-id">' +
             '<div class="row-name">' + esc(p.name) + '</div>' +
-            '<div class="row-meta">' + esc(abbr(p.team)) + ' &middot; ' + p.ip_display + '</div>' +
-          '</div>' + cells +
+            '<div class="row-meta">' + esc(abbr(p.team)) + '</div>' +
+          '</div>' + statCells + warCells +
         '</div>';
       }).join("");
     }
@@ -450,6 +550,14 @@ label.ctl {
     this.setAttribute("aria-pressed", String(state.manual));
     $("band").hidden = !state.manual;
     renderAll();
+  });
+  [["dis-fav", false], ["dis-hurt", true]].forEach(function (pair) {
+    $(pair[0]).addEventListener("click", function () {
+      state.disHurt = pair[1];
+      $("dis-fav").setAttribute("aria-pressed", String(!state.disHurt));
+      $("dis-hurt").setAttribute("aria-pressed", String(state.disHurt));
+      renderDisagree();
+    });
   });
   $("head").addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-col]");
