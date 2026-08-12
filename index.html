@@ -168,6 +168,18 @@ label.ctl {
 .chip.ra9 { background: rgba(196,36,48,0.12); color: var(--ra9); }
 #note { font-size: 13px; color: var(--ink-soft); margin: 12px 0 0; }
 
+.method { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
+.method summary {
+  cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 15px;
+}
+.method summary:focus-visible { outline: 2px solid var(--fip); outline-offset: 2px; }
+.method p {
+  font-size: 13px; color: var(--ink-soft); line-height: 1.6;
+  margin: 10px 0 0; max-width: 64ch;
+}
+.method strong { color: var(--ink); font-weight: 600; }
+
 .foot {
   font-family: 'IBM Plex Mono', monospace; font-size: 11px;
   color: var(--ink-soft); margin-top: 28px;
@@ -232,6 +244,38 @@ label.ctl {
     <div class="head" id="head"></div>
     <div id="board"></div>
     <p id="note"></p>
+
+    <details class="method">
+      <summary>How these numbers are calculated</summary>
+      <p><strong>Two poles.</strong> Everything here is built from official MLB season
+      lines. The FIP pole credits a pitcher only for what he controls without his
+      defense &mdash; strikeouts, walks, hit batters, homers: FIP = (13&middot;HR +
+      3&middot;(BB+HBP) &minus; 2&middot;K)/IP plus a league constant, moved onto the
+      runs-allowed scale. The RA9 pole charges him with every run he allowed, earned
+      or not. The 50/50 column and the manual slider are straight linear blends of
+      the two.</p>
+      <p><strong>The defense adjustment.</strong> Baseball-Reference shifts each
+      pitcher's runs-allowed context by the quality of the defense behind him. We run
+      the same mechanism with public data: Statcast team Outs Above Average,
+      converted at 0.8 runs per out, allocated to each pitcher by his share of his
+      team's balls in play &mdash; stint by stint for traded players. Good defense
+      behind you means runs get added back to your RA9, which lowers your WAR.
+      <span id="def-note"></span></p>
+      <p><strong>Shared skeleton.</strong> League constants come from every pitcher
+      to throw a pitch this season. Replacement level blends starter and reliever
+      rates (.380/.470 win%) by each pitcher's GS/G. Runs-per-win is 1.5 &times;
+      league RA9 + 3. WAR = (replacement RA9 &minus; pitcher's rate) / runs-per-win
+      &times; IP/9.</p>
+      <p><strong>Why totals differ from FanGraphs and Baseball-Reference.</strong>
+      fWAR adds park factors, league adjustments, infield flies in FIP, a dynamic
+      runs-per-win, and a leverage bump for relievers &mdash; none of which are here.
+      bWAR uses licensed DRS, which includes throwing arms and catcher defense where
+      OAA measures range only, so our defense corrections run smaller than theirs;
+      bWAR also adjusts for park and opponent quality. Expect rankings to track
+      closely and totals to drift by a few tenths of a win.</p>
+      <p><strong>Data.</strong> MLB Stats API season pitching lines and Baseball
+      Savant team fielding, rebuilt every morning.</p>
+    </details>
 
     <p class="foot" id="foot"></p>
   </div>
@@ -446,9 +490,11 @@ label.ctl {
       $("fresh").textContent = fresh;
 
       var defOn = meta.def_adjustment && meta.def_adjustment.indexOf("unavailable") < 0;
-      $("foot").innerHTML = "Simplified two-pole WAR" +
-        (defOn ? " &middot; RA9 is team-defense adjusted" : "") +
-        ' &middot; <a href="https://github.com/lancebroz/war-spectrum">method &amp; code</a>';
+      $("def-note").textContent = defOn
+        ? "Active in today's feed."
+        : "Savant data was unavailable in today's feed, so the RA9 pole is currently unadjusted.";
+      $("foot").innerHTML = "Updates every morning &middot; " +
+        '<a href="https://github.com/lancebroz/war-spectrum">code</a>';
 
       $("app").hidden = false;
       renderAll();
