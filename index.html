@@ -147,8 +147,6 @@ label.ctl {
   text-transform: uppercase; letter-spacing: 0.06em; font-size: 15px;
 }
 .disagree summary:focus-visible { outline: 2px solid var(--fip); outline-offset: 2px; }
-.dis-toggle { display: flex; gap: 8px; margin-top: 10px; }
-.dis-toggle .btn { padding: 4px 10px; font-size: 12px; }
 .dis-cols { display: flex; gap: 28px; flex-wrap: wrap; }
 .dis-col { flex: 1; min-width: 220px; }
 .dis-h {
@@ -206,6 +204,7 @@ label.ctl {
 .chip.fip { background: rgba(36,81,216,0.12); color: var(--fip); }
 .chip.ra9 { background: rgba(196,36,48,0.12); color: var(--ra9); }
 #note { font-size: 13px; color: var(--ink-soft); margin: 12px 0 0; }
+#show-more { margin-top: 14px; }
 
 .method { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
 .method summary {
@@ -262,10 +261,6 @@ label.ctl {
 
     <details class="disagree">
       <summary>Model disagreements</summary>
-      <div class="dis-toggle">
-        <button class="btn" id="dis-fav" aria-pressed="true">Favored</button>
-        <button class="btn" id="dis-hurt" aria-pressed="false">Hurt</button>
-      </div>
       <div class="dis-cols">
         <div class="dis-col fip">
           <h3 class="dis-h fip" id="dis-h-fip"></h3>
@@ -304,6 +299,7 @@ label.ctl {
     <div class="head" id="head"></div>
     <div id="board"></div>
     <p id="note"></p>
+    <button class="btn" id="show-more" hidden>Show more</button>
 
     <details class="method">
       <summary>How these numbers are calculated</summary>
@@ -346,7 +342,7 @@ label.ctl {
   "use strict";
 
   var FIP_COLOR = "#2451D8", RA9_COLOR = "#C42430";
-  var ROW_H = 56, BOARD_MAX = 25;
+  var ROW_H = 56, BOARD_MAX = 40;
 
   var TEAM_ABBR = {
     "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL",
@@ -372,7 +368,7 @@ label.ctl {
       id + "/headshot/67/current";
   }
 
-  var state = { lam: 0.35, manual: false, sort: "mid", disHurt: false, data: null,
+  var state = { lam: 0.35, manual: false, sort: "mid", expanded: false, data: null,
                 search: "", minIp: 100, role: "all" };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -439,11 +435,10 @@ label.ctl {
 
   function renderDisagree() {
     var pool = eligible().map(function (p) { return { p: p, d: p.war_fip - raEff(p) }; });
-    var hurt = state.disHurt;
-    var fipList = pool.slice().sort(function (a, b) { return hurt ? a.d - b.d : b.d - a.d; }).slice(0, 10);
-    var ra9List = pool.slice().sort(function (a, b) { return hurt ? b.d - a.d : a.d - b.d; }).slice(0, 10);
-    $("dis-h-fip").textContent = (hurt ? "Hurt" : "Favored") + " by FIP";
-    $("dis-h-ra9").textContent = (hurt ? "Hurt" : "Favored") + " by RA9";
+    var fipList = pool.slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 10);
+    var ra9List = pool.slice().sort(function (a, b) { return a.d - b.d; }).slice(0, 10);
+    $("dis-h-fip").textContent = "Favored by FIP";
+    $("dis-h-ra9").textContent = "Favored by RA9";
     function fill(id, list, sign) {
       $(id).innerHTML = list.map(function (e) {
         var v = e.d * sign;
@@ -465,11 +460,15 @@ label.ctl {
     pool.forEach(function (e, i) { e.rank = i + 1; });
 
     var q = state.search.trim().toLowerCase();
-    var rows = pool.filter(function (e) {
+    var matches = pool.filter(function (e) {
       return !q || e.p.name.toLowerCase().indexOf(q) >= 0 ||
         (e.p.team || "").toLowerCase().indexOf(q) >= 0 ||
         abbr(e.p.team).toLowerCase().indexOf(q) >= 0;
-    }).slice(0, BOARD_MAX);
+    });
+    var rows = state.expanded ? matches : matches.slice(0, BOARD_MAX);
+    var more = $("show-more");
+    more.hidden = matches.length <= BOARD_MAX;
+    more.textContent = state.expanded ? "Show fewer" : "Show more (" + matches.length + ")";
 
     var board = $("board");
     board.style.height = rows.length * ROW_H + "px";
@@ -551,14 +550,6 @@ label.ctl {
     $("band").hidden = !state.manual;
     renderAll();
   });
-  [["dis-fav", false], ["dis-hurt", true]].forEach(function (pair) {
-    $(pair[0]).addEventListener("click", function () {
-      state.disHurt = pair[1];
-      $("dis-fav").setAttribute("aria-pressed", String(!state.disHurt));
-      $("dis-hurt").setAttribute("aria-pressed", String(state.disHurt));
-      renderDisagree();
-    });
-  });
   $("head").addEventListener("click", function (ev) {
     var b = ev.target.closest("[data-col]");
     if (!b) return;
@@ -578,6 +569,10 @@ label.ctl {
       renderReadout();
       renderBoard();
     });
+  });
+  $("show-more").addEventListener("click", function () {
+    state.expanded = !state.expanded;
+    renderBoard();
   });
   $("search").addEventListener("input", function () { state.search = this.value; renderBoard(); });
   $("min-ip").addEventListener("input", function () {
