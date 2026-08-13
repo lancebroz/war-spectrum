@@ -113,6 +113,17 @@ PARK_FACTORS = {
     158: 99,   # MIL
 }
 
+# Official published WAR sources. B-Ref's daily WAR archive is a public,
+# daily-updated data file; FanGraphs' leaders API returns leaderboard JSON.
+# Both are attributed on the site. If either is unreachable on a given
+# morning, that pole falls back to our in-house approximation and the feed
+# says so.
+BREF_WAR_URL = "https://www.baseball-reference.com/data/war_daily_pitch.txt"
+FG_API_URL = (
+    "https://www.fangraphs.com/api/leaders/major-league/data"
+    "?age=&pos=all&stats=pit&lg=all&qual=0&season={s}&season1={s}"
+    "&ind=0&month=0&pageitems=3000&pagenum=1&type=8")
+
 OUT_PATHS = [REPO_ROOT / "data" / "war_spectrum.json"]
 
 
@@ -341,7 +352,67 @@ def _report(label, runs_by_team):
           f"spread {spread[0]:+.0f} to {spread[-1]:+.0f} runs")
 
 
-def build_feed(lines, season, team_def_runs, def_source="unavailable"):
+def fetch_official_bwar(season, bref_file=None):
+    """mlb_ID -> season bWAR (stints summed) from B-Ref's daily WAR archive."""
+    if bref_file:
+        text = Path(bref_file).read_text()
+    else:
+        import requests
+        resp = requests.get(BREF_WAR_URL, timeout=60,
+                            headers={"User-Agent": "war-spectrum/1.0"})
+        resp.raise_for_status()
+        text = resp.text
+    out = {}
+    for row in csv.DictReader(io.StringIO(text)):
+        try:
+            if int(row.get("year_ID", 0)) != season:
+                continue
+            pid = int(float(row["mlb_ID"]))
+            out[pid] = out.get(pid, 0.0) + float(row["WAR"])
+        except (TypeError, ValueError, KeyError):
+            continue
+    return out
+
+
+def fetch_official_fwar(season, fg_file=None):
+    """MLBAMID -> season fWAR, from the FanGraphs leaders API (JSON) or a
+    saved leaderboard CSV export (both shapes accepted)."""
+    if fg_file:
+        text = Path(fg_file).read_text()
+    else:
+        import requests
+        resp = requests.get(FG_API_URL.format(s=season), timeout=60,
+                            headers={"User-Agent": "war-spectrum/1.0"})
+        resp.raise_for_status()
+        text = resp.text
+
+    out = {}
+    stripped = text.lstrip("\ufeff \n")
+    if stripped.startswith("{") or stripped.startswith("["):
+        payload = json.loads(stripped)
+        rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        for row in rows or []:
+            pid = row.get("xMLBAMID") or row.get("MLBAMID") or row.get("mlbamid")
+            war = row.get("WAR")
+            try:
+                if pid is not None and war is not None:
+                    out[int(pid)] = float(war)
+            except (TypeError, ValueError):
+                continue
+    else:
+        for row in csv.DictReader(io.StringIO(stripped)):
+            cols = {c.strip().lstrip("\ufeff"): c for c in row}
+            try:
+                out[int(float(row[cols["MLBAMID"]]))] = float(row[cols["WAR"]])
+            except (TypeError, ValueError, KeyError):
+                continue
+    return out
+
+
+def build_feed(lines, season, team_def_runs, def_source="unavailable",
+               fwar_map=None, bwar_map=None):
+    fwar_map = fwar_map or {}
+    bwar_map = bwar_map or {}
     # League constants from everyone who threw a pitch, not just the feed cut.
     lg = {"outs": 0, "k": 0, "bb": 0, "hbp": 0, "hr": 0, "r": 0, "er": 0}
     for ln in lines:
@@ -432,9 +503,13 @@ def build_feed(lines, season, team_def_runs, def_source="unavailable"):
             "fipr9": round(fipr9, 3),
             "def_runs": round(def_runs, 1),
             "ra9_adj": round(ra9_adj, 2),
-            "war_fip": round(war_of(fipr9), 3),
+            "war_fip": round(fwar_map.get(ln["id"], war_of(fipr9)), 3),
             "war_ra9": round(war_of(ra9), 3),
-            "war_ra9_adj": round(war_of(ra9_adj), 3),
+            "war_ra9_adj": round(bwar_map.get(ln["id"], war_of(ra9_adj)), 3),
+            "war_fip_calc": round(war_of(fipr9), 3),
+            "war_ra9_calc": round(war_of(ra9_adj), 3),
+            "src": ("official" if ln["id"] in fwar_map else "calc") + "/" +
+                   ("official" if ln["id"] in bwar_map else "calc"),
         })
 
     pitchers.sort(key=lambda p: (p["war_fip"] + p["war_ra9_adj"]) / 2, reverse=True)
@@ -448,6 +523,14 @@ def build_feed(lines, season, team_def_runs, def_source="unavailable"):
             "data_through": data_through,
             "source": "MLB Stats API season pitching splits",
             "min_ip": MIN_IP,
+            "fwar_source": (
+                f"official FanGraphs ({len(fwar_map)} pitchers)" if fwar_map
+                else "unavailable — in-house FIP-pole approximation this run"
+            ),
+            "bwar_source": (
+                f"official Baseball-Reference ({len(bwar_map)} pitchers)" if bwar_map
+                else "unavailable — in-house RA9-pole approximation this run"
+            ),
             "def_adjustment": (
                 f"Statcast team defense ({def_source}), allocated by BIP share"
                 + (f", scaled x{DEF_SCALE}" if DEF_SCALE != 1.0 else "")
@@ -485,6 +568,10 @@ def main():
     ap.add_argument("--season", type=int, default=DEFAULT_SEASON)
     ap.add_argument("--input-json", type=Path, default=None,
                     help="Read a saved Stats API response instead of fetching (testing)")
+    ap.add_argument("--bref-file", type=Path, default=None,
+                    help="Read a saved war_daily_pitch.txt instead of fetching (testing)")
+    ap.add_argument("--fg-file", type=Path, default=None,
+                    help="Read a saved FanGraphs leaderboard CSV/JSON instead of fetching (testing)")
     ap.add_argument("--roster-json", type=Path, default=None,
                     help="Read a saved Stats API player directory instead of fetching (testing)")
     ap.add_argument("--def-csv", type=Path, default=None,
@@ -505,7 +592,21 @@ def main():
     team_def_runs, def_source = fetch_team_defense(args.season, def_csv=args.def_csv, roster_json=args.roster_json)
     if not team_def_runs:
         print("WARNING: team defense data unavailable; RA9 pole unadjusted.", file=sys.stderr)
-    feed = build_feed(lines, args.season, team_def_runs, def_source)
+    try:
+        fwar_map = fetch_official_fwar(args.season, fg_file=args.fg_file)
+        print(f"official fWAR loaded: {len(fwar_map)} pitchers")
+    except Exception as exc:
+        print(f"WARNING: official fWAR unavailable ({exc}); using in-house FIP pole.",
+              file=sys.stderr)
+        fwar_map = {}
+    try:
+        bwar_map = fetch_official_bwar(args.season, bref_file=args.bref_file)
+        print(f"official bWAR loaded: {len(bwar_map)} pitchers")
+    except Exception as exc:
+        print(f"WARNING: official bWAR unavailable ({exc}); using in-house RA9 pole.",
+              file=sys.stderr)
+        bwar_map = {}
+    feed = build_feed(lines, args.season, team_def_runs, def_source, fwar_map, bwar_map)
 
     body = json.dumps(feed, separators=(",", ":"))
     for out in OUT_PATHS:
