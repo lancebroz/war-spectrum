@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Blame Spectrum — Live Pitcher WAR</title>
-<meta name="description" content="FIP-based, RA9-based, and blended pitcher WAR side by side. Live MLB stats, updated every morning." />
+<meta name="description" content="Official fWAR and bWAR side by side, with a slider to blend them. Live MLB stats, updated every morning." />
 <meta property="og:title" content="The Blame Spectrum — Live Pitcher WAR" />
-<meta property="og:description" content="FIP-based, RA9-based, and blended pitcher WAR side by side. Live MLB stats, updated every morning." />
+<meta property="og:description" content="Official fWAR and bWAR side by side, with a slider to blend them. Live MLB stats, updated every morning." />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -277,12 +277,12 @@ label.ctl {
     <div class="band" id="band" hidden>
       <div class="poles">
         <div class="pole left">
-          <div class="pole-name">FIP-based</div>
-          <div class="pole-desc">K &middot; BB &middot; HR only</div>
+          <div class="pole-name">fWAR</div>
+          <div class="pole-desc">FIP-based &middot; FanGraphs</div>
         </div>
         <div class="pole right">
-          <div class="pole-name">RA9-based</div>
-          <div class="pole-desc">every run counts</div>
+          <div class="pole-name">bWAR</div>
+          <div class="pole-desc">RA9-based &middot; Baseball-Reference</div>
         </div>
       </div>
       <input id="lam" type="range" min="0" max="100" value="35"
@@ -303,35 +303,26 @@ label.ctl {
     <button class="btn" id="show-more" hidden>Show more</button>
 
     <details class="method">
-      <summary>How these numbers are calculated</summary>
-      <p><strong>Two poles.</strong> Everything here is built from official MLB season
-      lines. The FIP pole credits a pitcher only for what he controls without his
-      defense &mdash; strikeouts, walks, hit batters, homers: FIP = (13&middot;HR +
-      3&middot;(BB+HBP) &minus; 2&middot;K)/IP plus a league constant, moved onto the
-      runs-allowed scale. The RA9 pole charges him with every run he allowed, earned
-      or not. The 50/50 column and the manual slider are straight linear blends of
-      the two.</p>
-      <p><strong>The defense adjustment.</strong> Baseball-Reference shifts each
-      pitcher's runs-allowed context by the quality of the defense behind him. We run
-      the same mechanism with public data: Statcast team fielding run value (range,
-      arms, and catcher defense; Outs Above Average at 0.8 runs per out as fallback),
-      allocated to each pitcher by his share of his team's balls in play &mdash;
-      stint by stint for traded players. Good defense behind you means runs get
-      added back to your RA9, which lowers your WAR. <span id="def-note"></span></p>
-      <p><strong>Shared skeleton.</strong> League constants come from every pitcher
-      to throw a pitch this season. Both poles are park-adjusted (pitcher park
-      factors, halved for road games) and converted with FanGraphs' dynamic
-      runs-per-win, which prices each pitcher's runs in the run environment he
-      himself creates. Replacement level is 0.12 wins per 9 for starters and 0.03
-      for relievers, blended by GS/G.</p>
-      <p><strong>Why totals still differ from FanGraphs and Baseball-Reference.</strong>
-      fWAR counts infield flies as strikeouts, folds in catcher framing, uses its own
-      park factors, and gives relievers a leverage bump. bWAR uses licensed DRS
-      (typically wider spreads than Statcast fielding values), adjusts for opponent
-      quality, and converts runs to wins through a Pythagorean exchange. Expect
-      rankings to track closely and totals to sit within a few tenths.</p>
-      <p><strong>Data.</strong> MLB Stats API season pitching lines and Baseball
-      Savant team fielding, rebuilt every morning.</p>
+      <summary>How these numbers work</summary>
+      <p><strong>The WAR columns are the real, published numbers.</strong> Each morning
+      this site pulls official bWAR from Baseball-Reference's daily WAR archive and
+      official fWAR from FanGraphs, matched by MLB player ID. The 50/50 column and the
+      manual slider are straight linear blends of those two figures &mdash; the blend
+      is ours; the endpoints are theirs.</p>
+      <p><strong>Why they disagree.</strong> fWAR is built on FIP: it credits a pitcher
+      only for strikeouts, walks, and homers, treating balls in play as defense and
+      luck. bWAR starts from actual runs allowed, then adjusts for team defense
+      (DRS), park, and opponent quality. A pitcher outrunning his FIP will look
+      better on bWAR; a strikeout artist with bad batted-ball luck looks better on
+      fWAR. Where the two columns split widest is exactly where the philosophical
+      argument lives &mdash; that's what the disagreements panel surfaces.</p>
+      <p><strong>Fallback.</strong> If a source is unreachable or missing a pitcher,
+      that pole falls back to an in-house approximation (park-adjusted, FanGraphs-style
+      dynamic runs-per-win, Statcast team-defense adjustment on the RA9 side) until the
+      next refresh. <span id="def-note"></span></p>
+      <p><strong>The stat columns</strong> (IP, ERA, WHIP, HR/9, K-BB%) come from
+      official MLB season lines, computed with formulas verified to match FanGraphs
+      exactly.</p>
     </details>
 
     <p class="foot" id="foot"></p>
@@ -427,7 +418,7 @@ label.ctl {
       head.innerHTML = '<span class="h-pad"></span>' + stats +
         '<span class="wars-h">' +
         ["fip", "mid", "ra9"].map(function (c) {
-          var label = c === "fip" ? "FIP" : c === "mid" ? "50/50" : "RA9";
+          var label = c === "fip" ? "fWAR" : c === "mid" ? "50/50" : "bWAR";
           return '<button class="h-col ' + c + '" data-col="' + c + '" aria-pressed="' +
             (state.sort === c) + '">' + label + '</button>';
         }).join("") + '</span>';
@@ -438,8 +429,8 @@ label.ctl {
     var pool = eligible().map(function (p) { return { p: p, d: p.war_fip - raEff(p) }; });
     var fipList = pool.slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 10);
     var ra9List = pool.slice().sort(function (a, b) { return a.d - b.d; }).slice(0, 10);
-    $("dis-h-fip").textContent = "Favored by FIP";
-    $("dis-h-ra9").textContent = "Favored by RA9";
+    $("dis-h-fip").textContent = "Favored by fWAR";
+    $("dis-h-ra9").textContent = "Favored by bWAR";
     function fill(id, list, sign) {
       $(id).innerHTML = list.map(function (e) {
         var v = e.d * sign;
@@ -513,10 +504,10 @@ label.ctl {
         var chip = el.querySelector(".chip");
         if (diff >= 0) {
           chip.className = "chip fip";
-          chip.textContent = "FIP +" + diff.toFixed(1);
+          chip.textContent = "FG +" + diff.toFixed(1);
         } else {
           chip.className = "chip ra9";
-          chip.textContent = "RA9 +" + (-diff).toFixed(1);
+          chip.textContent = "BR +" + (-diff).toFixed(1);
         }
       } else {
         var c = colsOf(e.p);
@@ -593,11 +584,14 @@ label.ctl {
       fresh += " \u00b7 updates every morning";
       $("fresh").textContent = fresh;
 
-      var defOn = meta.def_adjustment && meta.def_adjustment.indexOf("unavailable") < 0;
-      $("def-note").textContent = defOn
-        ? "Active in today's feed."
-        : "Savant data was unavailable in today's feed, so the RA9 pole is currently unadjusted.";
-      $("foot").innerHTML = "Updates every morning &middot; " +
+      var fgOk = meta.fwar_source && meta.fwar_source.indexOf("official") === 0;
+      var brOk = meta.bwar_source && meta.bwar_source.indexOf("official") === 0;
+      $("def-note").textContent = fgOk && brOk
+        ? "Today's feed: both poles are official published numbers."
+        : ("Today's feed: " + (fgOk ? "" : "fWAR is the in-house approximation. ") +
+           (brOk ? "" : "bWAR is the in-house approximation."));
+      $("foot").innerHTML = "Updates every morning &middot; fWAR data &copy; FanGraphs " +
+        "&middot; bWAR data courtesy Baseball-Reference.com &middot; " +
         '<a href="https://github.com/lancebroz/war-spectrum">code</a>';
 
       $("app").hidden = false;
