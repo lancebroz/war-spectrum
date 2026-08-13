@@ -313,23 +313,23 @@ label.ctl {
       the two.</p>
       <p><strong>The defense adjustment.</strong> Baseball-Reference shifts each
       pitcher's runs-allowed context by the quality of the defense behind him. We run
-      the same mechanism with public data: Statcast team Outs Above Average,
-      converted at 0.8 runs per out, allocated to each pitcher by his share of his
-      team's balls in play &mdash; stint by stint for traded players. Good defense
-      behind you means runs get added back to your RA9, which lowers your WAR.
-      <span id="def-note"></span></p>
+      the same mechanism with public data: Statcast team fielding run value (range,
+      arms, and catcher defense; Outs Above Average at 0.8 runs per out as fallback),
+      allocated to each pitcher by his share of his team's balls in play &mdash;
+      stint by stint for traded players. Good defense behind you means runs get
+      added back to your RA9, which lowers your WAR. <span id="def-note"></span></p>
       <p><strong>Shared skeleton.</strong> League constants come from every pitcher
-      to throw a pitch this season. Replacement level blends starter and reliever
-      rates (.380/.470 win%) by each pitcher's GS/G. Runs-per-win is 1.5 &times;
-      league RA9 + 3. WAR = (replacement RA9 &minus; pitcher's rate) / runs-per-win
-      &times; IP/9.</p>
-      <p><strong>Why totals differ from FanGraphs and Baseball-Reference.</strong>
-      fWAR adds park factors, league adjustments, infield flies in FIP, a dynamic
-      runs-per-win, and a leverage bump for relievers &mdash; none of which are here.
-      bWAR uses licensed DRS, which includes throwing arms and catcher defense where
-      OAA measures range only, so our defense corrections run smaller than theirs;
-      bWAR also adjusts for park and opponent quality. Expect rankings to track
-      closely and totals to drift by a few tenths of a win.</p>
+      to throw a pitch this season. Both poles are park-adjusted (pitcher park
+      factors, halved for road games) and converted with FanGraphs' dynamic
+      runs-per-win, which prices each pitcher's runs in the run environment he
+      himself creates. Replacement level is 0.12 wins per 9 for starters and 0.03
+      for relievers, blended by GS/G.</p>
+      <p><strong>Why totals still differ from FanGraphs and Baseball-Reference.</strong>
+      fWAR counts infield flies as strikeouts, folds in catcher framing, uses its own
+      park factors, and gives relievers a leverage bump. bWAR uses licensed DRS
+      (typically wider spreads than Statcast fielding values), adjusts for opponent
+      quality, and converts runs to wins through a Pythagorean exchange. Expect
+      rankings to track closely and totals to sit within a few tenths.</p>
       <p><strong>Data.</strong> MLB Stats API season pitching lines and Baseball
       Savant team fielding, rebuilt every morning.</p>
     </details>
