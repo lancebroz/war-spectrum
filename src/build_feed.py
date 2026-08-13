@@ -67,18 +67,15 @@ STATS_URL = (
 # Value (range + arms + catcher, already in runs) is much closer to the DRS
 # that bWAR uses than bare OAA. Parsing is column-name driven, so any of these
 # shapes works; first parseable CSV wins.
-SAVANT_URLS = [
-    ("https://baseballsavant.mlb.com/leaderboard/fielding-run-value"
-     "?type=team&year={s}&csv=true"),
-    ("https://baseballsavant.mlb.com/leaderboard/fielding_run_value"
-     "?type=team&year={s}&csv=true"),
-    ("https://baseballsavant.mlb.com/leaderboard/outs_above_average"
-     "?type=Fielding_Team&startYear={s}&endYear={s}&split=no&team=&range=year"
-     "&min=q&pos=&roles=&viz=hide&csv=true"),
-    ("https://baseballsavant.mlb.com/leaderboard/outs_above_average"
-     "?type=team&startYear={s}&endYear={s}&split=no&team=&range=year"
-     "&min=q&pos=&roles=&viz=hide&csv=true"),
-]
+# Confirmed-real endpoints (2026): the FRV leaderboard CSV is player-level
+# with columns name,id,total_runs,... and no team column, so we aggregate to
+# teams with the Stats API roster map. OAA team CSV remains the fallback.
+FRV_CSV_URL = "https://baseballsavant.mlb.com/leaderboard/fielding-run-value?csv=true"
+ROSTER_URL = "https://statsapi.mlb.com/api/v1/sports/1/players?season={s}"
+OAA_TEAM_URL = (
+    "https://baseballsavant.mlb.com/leaderboard/outs_above_average"
+    "?type=Fielding_Team&startYear={s}&endYear={s}&split=no&team=&range=year"
+    "&min=q&pos=&roles=&viz=hide&csv=true")
 
 # Pitcher park factors (100 = neutral), keyed by MLBAM team id. Multi-year
 # style, like B-Ref's PPFp. Approximate values baked as constants — update
@@ -234,63 +231,114 @@ def consolidate(splits):
     return lines
 
 
-def fetch_team_defense(season, def_csv=None):
+def fetch_roster_team_map(season, roster_json=None):
+    """player_id -> current team_id, from the Stats API player directory."""
+    if roster_json:
+        payload = json.loads(Path(roster_json).read_text())
+    else:
+        import requests
+        resp = requests.get(ROSTER_URL.format(s=season), timeout=30)
+        resp.raise_for_status()
+        payload = resp.json()
+    out = {}
+    for person in payload.get("people") or []:
+        pid = person.get("id")
+        tid = (person.get("currentTeam") or {}).get("id")
+        if pid is not None and tid is not None:
+            out[pid] = tid
+    return out
+
+
+def fetch_team_defense(season, def_csv=None, roster_json=None):
     """
     Team defensive runs above average, keyed by MLB team id.
 
-    Tries each Savant CSV candidate in order and parses per URL (a URL that
-    returns unparseable content no longer blocks the rest). Returns
-    (runs_by_team_id, source_label); ({}, "unavailable") on total failure.
+    Primary: Savant's Fielding Run Value CSV (player-level; range + arms +
+    catcher defense — much closer to DRS's scope than bare OAA), aggregated
+    to teams via the Stats API roster map. A traded fielder's season FRV is
+    credited to his current team — a small, documented approximation.
+    Fallback: Savant's team OAA CSV at RUNS_PER_OUT runs per out.
+    Returns (runs_by_team_id, source_label); ({}, "unavailable") on failure.
     Values are scaled by DEF_SCALE.
     """
-    candidates = []
-    if def_csv:
-        candidates.append(("local CSV", Path(def_csv).read_text()))
-    else:
+    def _get(url):
         import requests
-        for url in SAVANT_URLS:
-            try:
-                resp = requests.get(url.format(s=season), timeout=30,
-                                    headers={"User-Agent": "war-spectrum/1.0"})
-                if resp.ok and "," in resp.text:
-                    candidates.append((url.format(s=season), resp.text))
-            except requests.RequestException:
-                continue
-
-    for src, text in candidates:
         try:
-            rows = list(csv.DictReader(io.StringIO(text)))
-            if not rows:
-                continue
-            cols = {c.lower().strip(): c for c in rows[0].keys()}
+            resp = requests.get(url, timeout=30,
+                                headers={"User-Agent": "war-spectrum/1.0"})
+            return resp.text if resp.ok and "," in resp.text else None
+        except requests.RequestException:
+            return None
+
+    # --- Primary: FRV player CSV -> team aggregation ---
+    frv_text = Path(def_csv).read_text() if def_csv else _get(FRV_CSV_URL)
+    if frv_text:
+        try:
+            rows = list(csv.DictReader(io.StringIO(frv_text)))
+            cols = {c.lower().strip().lstrip("\ufeff"): c for c in (rows[0].keys() if rows else [])}
+            if "id" in cols and "total_runs" in cols:
+                parsed = []
+                for row in rows:
+                    try:
+                        parsed.append((int(float(row[cols["id"]])),
+                                       float(row[cols["total_runs"]])))
+                    except (TypeError, ValueError, KeyError):
+                        continue
+                if parsed and all(100 <= pid <= 160 for pid, _ in parsed):
+                    # Already team-level (ids are MLBAM team ids)
+                    out = {pid: runs * DEF_SCALE for pid, runs in parsed}
+                    _report("FRV team CSV", out)
+                    return out, "FRV (team)"
+                if parsed:
+                    try:
+                        team_of = fetch_roster_team_map(season, roster_json)
+                    except Exception:
+                        team_of = {}
+                    if team_of:
+                        out = {}
+                        matched = 0
+                        for pid, runs in parsed:
+                            tid = team_of.get(pid)
+                            if tid is not None:
+                                out[tid] = out.get(tid, 0.0) + runs * DEF_SCALE
+                                matched += 1
+                        if out and matched >= len(parsed) * 0.7:
+                            _report(f"FRV players ({matched}/{len(parsed)} mapped)", out)
+                            return out, "FRV (player-aggregated)"
+        except csv.Error:
+            pass
+
+    # --- Fallback: team OAA ---
+    oaa_text = _get(OAA_TEAM_URL.format(s=season)) if not def_csv else None
+    if oaa_text:
+        try:
+            rows = list(csv.DictReader(io.StringIO(oaa_text)))
+            cols = {c.lower().strip().lstrip("\ufeff"): c for c in (rows[0].keys() if rows else [])}
             id_col = next((cols[c] for c in
                            ("entity_id", "team_id", "id", "fielder_id") if c in cols), None)
-            runs_col = next((cols[c] for c in
-                             ("fielding_runs_prevented", "run_value", "runs_prevented")
-                             if c in cols), None)
             oaa_col = next((cols[c] for c in
                             ("outs_above_average", "oaa") if c in cols), None)
-            if not id_col or not (runs_col or oaa_col):
-                continue
-            out = {}
-            for row in rows:
-                try:
-                    tid = int(float(row[id_col]))
-                    if runs_col and row.get(runs_col) not in (None, ""):
-                        out[tid] = float(row[runs_col]) * DEF_SCALE
-                    else:
-                        out[tid] = float(row[oaa_col]) * RUNS_PER_OUT * DEF_SCALE
-                except (TypeError, ValueError, KeyError):
-                    continue
-            if out:
-                label = ("FRV" if runs_col else "OAA") + (" via " + src if def_csv is None else " (local)")
-                spread = sorted(out.values())
-                print(f"defense source: {label} | teams: {len(out)} | "
-                      f"spread {spread[0]:+.0f} to {spread[-1]:+.0f} runs")
-                return out, label
+            if id_col and oaa_col:
+                out = {}
+                for row in rows:
+                    try:
+                        out[int(float(row[id_col]))] = \
+                            float(row[oaa_col]) * RUNS_PER_OUT * DEF_SCALE
+                    except (TypeError, ValueError, KeyError):
+                        continue
+                if out:
+                    _report("OAA team CSV", out)
+                    return out, "OAA"
         except csv.Error:
-            continue
+            pass
+
     return {}, "unavailable"
+
+
+def _report(label, runs_by_team):
+    spread = sorted(runs_by_team.values())
+    print(f"defense source: {label} | teams: {len(runs_by_team)} | "
+          f"spread {spread[0]:+.0f} to {spread[-1]:+.0f} runs")
 
 
 def build_feed(lines, season, team_def_runs, def_source="unavailable"):
@@ -437,6 +485,8 @@ def main():
     ap.add_argument("--season", type=int, default=DEFAULT_SEASON)
     ap.add_argument("--input-json", type=Path, default=None,
                     help="Read a saved Stats API response instead of fetching (testing)")
+    ap.add_argument("--roster-json", type=Path, default=None,
+                    help="Read a saved Stats API player directory instead of fetching (testing)")
     ap.add_argument("--def-csv", type=Path, default=None,
                     help="Read a saved Savant team-OAA CSV instead of fetching (testing)")
     args = ap.parse_args()
@@ -452,7 +502,7 @@ def main():
         sys.exit(1)
 
     lines = consolidate(splits)
-    team_def_runs, def_source = fetch_team_defense(args.season, def_csv=args.def_csv)
+    team_def_runs, def_source = fetch_team_defense(args.season, def_csv=args.def_csv, roster_json=args.roster_json)
     if not team_def_runs:
         print("WARNING: team defense data unavailable; RA9 pole unadjusted.", file=sys.stderr)
     feed = build_feed(lines, args.season, team_def_runs, def_source)
