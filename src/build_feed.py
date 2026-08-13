@@ -52,6 +52,10 @@ CENTRAL_TZ = ZoneInfo("America/Chicago")
 DEFAULT_SEASON = 2026
 MIN_IP = 20.0
 RUNS_PER_OUT = 0.8  # Statcast OAA outs -> runs
+# Statcast fielding values spread narrower than the licensed DRS that bWAR
+# uses. Set DEF_SCALE above 1.0 (try 1.4-1.6) to approximate DRS's wider
+# spread when benchmarking the RA9 pole against Baseball-Reference.
+DEF_SCALE = 1.0
 
 STATS_URL = (
     "https://statsapi.mlb.com/api/v1/stats"
@@ -64,9 +68,10 @@ STATS_URL = (
 # that bWAR uses than bare OAA. Parsing is column-name driven, so any of these
 # shapes works; first parseable CSV wins.
 SAVANT_URLS = [
+    ("https://baseballsavant.mlb.com/leaderboard/fielding-run-value"
+     "?type=team&year={s}&csv=true"),
     ("https://baseballsavant.mlb.com/leaderboard/fielding_run_value"
-     "?type=team&startYear={s}&endYear={s}&split=no&team=&range=year"
-     "&min=q&pos=&roles=&viz=hide&csv=true"),
+     "?type=team&year={s}&csv=true"),
     ("https://baseballsavant.mlb.com/leaderboard/outs_above_average"
      "?type=Fielding_Team&startYear={s}&endYear={s}&split=no&team=&range=year"
      "&min=q&pos=&roles=&viz=hide&csv=true"),
@@ -233,14 +238,14 @@ def fetch_team_defense(season, def_csv=None):
     """
     Team defensive runs above average, keyed by MLB team id.
 
-    Source: Baseball Savant team OAA leaderboard CSV (or a local file via
-    --def-csv). Column detection is name-driven so minor endpoint changes
-    don't break the build. Returns {} on any failure — callers treat that as
-    'no adjustment'.
+    Tries each Savant CSV candidate in order and parses per URL (a URL that
+    returns unparseable content no longer blocks the rest). Returns
+    (runs_by_team_id, source_label); ({}, "unavailable") on total failure.
+    Values are scaled by DEF_SCALE.
     """
-    texts = []
+    candidates = []
     if def_csv:
-        texts.append(Path(def_csv).read_text())
+        candidates.append(("local CSV", Path(def_csv).read_text()))
     else:
         import requests
         for url in SAVANT_URLS:
@@ -248,12 +253,11 @@ def fetch_team_defense(season, def_csv=None):
                 resp = requests.get(url.format(s=season), timeout=30,
                                     headers={"User-Agent": "war-spectrum/1.0"})
                 if resp.ok and "," in resp.text:
-                    texts.append(resp.text)
-                    break
+                    candidates.append((url.format(s=season), resp.text))
             except requests.RequestException:
                 continue
 
-    for text in texts:
+    for src, text in candidates:
         try:
             rows = list(csv.DictReader(io.StringIO(text)))
             if not rows:
@@ -273,19 +277,23 @@ def fetch_team_defense(season, def_csv=None):
                 try:
                     tid = int(float(row[id_col]))
                     if runs_col and row.get(runs_col) not in (None, ""):
-                        out[tid] = float(row[runs_col])
+                        out[tid] = float(row[runs_col]) * DEF_SCALE
                     else:
-                        out[tid] = float(row[oaa_col]) * RUNS_PER_OUT
+                        out[tid] = float(row[oaa_col]) * RUNS_PER_OUT * DEF_SCALE
                 except (TypeError, ValueError, KeyError):
                     continue
             if out:
-                return out
+                label = ("FRV" if runs_col else "OAA") + (" via " + src if def_csv is None else " (local)")
+                spread = sorted(out.values())
+                print(f"defense source: {label} | teams: {len(out)} | "
+                      f"spread {spread[0]:+.0f} to {spread[-1]:+.0f} runs")
+                return out, label
         except csv.Error:
             continue
-    return {}
+    return {}, "unavailable"
 
 
-def build_feed(lines, season, team_def_runs):
+def build_feed(lines, season, team_def_runs, def_source="unavailable"):
     # League constants from everyone who threw a pitch, not just the feed cut.
     lg = {"outs": 0, "k": 0, "bb": 0, "hbp": 0, "hr": 0, "r": 0, "er": 0}
     for ln in lines:
@@ -393,7 +401,8 @@ def build_feed(lines, season, team_def_runs):
             "source": "MLB Stats API season pitching splits",
             "min_ip": MIN_IP,
             "def_adjustment": (
-                f"Statcast team OAA at {RUNS_PER_OUT} runs/out, allocated by BIP share"
+                f"Statcast team defense ({def_source}), allocated by BIP share"
+                + (f", scaled x{DEF_SCALE}" if DEF_SCALE != 1.0 else "")
                 if def_active else "unavailable — RA9 pole unadjusted this run"
             ),
             "method": (
@@ -443,10 +452,10 @@ def main():
         sys.exit(1)
 
     lines = consolidate(splits)
-    team_def_runs = fetch_team_defense(args.season, def_csv=args.def_csv)
+    team_def_runs, def_source = fetch_team_defense(args.season, def_csv=args.def_csv)
     if not team_def_runs:
         print("WARNING: team defense data unavailable; RA9 pole unadjusted.", file=sys.stderr)
-    feed = build_feed(lines, args.season, team_def_runs)
+    feed = build_feed(lines, args.season, team_def_runs, def_source)
 
     body = json.dumps(feed, separators=(",", ":"))
     for out in OUT_PATHS:
